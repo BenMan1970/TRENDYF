@@ -17,9 +17,20 @@ def hma(series, length):
 
 # Fonction pour déterminer la tendance
 def get_trend(fast, slow):
-    if fast.iloc[-1] > slow.iloc[-1]:
+    # Vérifier si les séries sont valides et contiennent des données
+    if fast.empty or slow.empty:
+        return 'Neutral'
+    
+    # Vérifier si la dernière valeur est NaN
+    fast_last = fast.iloc[-1]
+    slow_last = slow.iloc[-1]
+    if pd.isna(fast_last) or pd.isna(slow_last):
+        return 'Neutral'
+
+    # Comparer les valeurs
+    if fast_last > slow_last:
         return 'Bullish'
-    elif fast.iloc[-1] < slow.iloc[-1]:
+    elif fast_last < slow_last:
         return 'Bearish'
     else:
         return 'Neutral'
@@ -38,7 +49,7 @@ def analyze_forex_pairs():
 
             # Vérifier si les données sont vides
             if data_1h.empty or data_4h.empty or data_d.empty or data_w.empty:
-                st.warning(f"Données manquantes pour la paire {pair}")
+                st.error(f"Données manquantes pour la paire {pair}")
                 continue
 
             # Calculer les moyennes mobiles
@@ -52,8 +63,9 @@ def analyze_forex_pairs():
             ema50_w = data_w['Close'].ewm(span=50, adjust=False).mean()
 
             # Vérifier si les calculs contiennent des NaN
-            if any(s.isna().iloc[-1] for s in [hma12_1h, ema20_1h, hma12_4h, ema20_4h, ema20_d, ema50_d, ema20_w, ema50_w]):
-                st.warning(f"Valeurs manquantes dans les indicateurs pour {pair}")
+            indicators = [hma12_1h, ema20_1h, hma12_4h, ema20_4h, ema20_d, ema50_d, ema20_w, ema50_w]
+            if any(s.isna().iloc[-1] for s in indicators):
+                st.error(f"Valeurs manquantes dans les indicateurs pour {pair}")
                 continue
 
             # Déterminer les tendances
