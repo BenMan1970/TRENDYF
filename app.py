@@ -31,10 +31,15 @@ def analyze_forex_pairs():
     for pair in forex_pairs:
         try:
             # Télécharger les données pour différents timeframes
-            data_1h = yf.download(pair, period='1mo', interval='1h')
-            data_4h = yf.download(pair, period='3mo', interval='4h')
-            data_d = yf.download(pair, period='1y', interval='1d')
-            data_w = yf.download(pair, period='5y', interval='1wk')
+            data_1h = yf.download(pair, period='1mo', interval='1h', progress=False)
+            data_4h = yf.download(pair, period='3mo', interval='4h', progress=False)
+            data_d = yf.download(pair, period='1y', interval='1d', progress=False)
+            data_w = yf.download(pair, period='5y', interval='1wk', progress=False)
+
+            # Vérifier si les données sont vides
+            if data_1h.empty or data_4h.empty or data_d.empty or data_w.empty:
+                st.warning(f"Données manquantes pour la paire {pair}")
+                continue
 
             # Calculer les moyennes mobiles
             hma12_1h = hma(data_1h['Close'], 12)
@@ -45,6 +50,11 @@ def analyze_forex_pairs():
             ema50_d = data_d['Close'].ewm(span=50, adjust=False).mean()
             ema20_w = data_w['Close'].ewm(span=20, adjust=False).mean()
             ema50_w = data_w['Close'].ewm(span=50, adjust=False).mean()
+
+            # Vérifier si les calculs contiennent des NaN
+            if any(s.isna().iloc[-1] for s in [hma12_1h, ema20_1h, hma12_4h, ema20_4h, ema20_d, ema50_d, ema20_w, ema50_w]):
+                st.warning(f"Valeurs manquantes dans les indicateurs pour {pair}")
+                continue
 
             # Déterminer les tendances
             trend_1h = get_trend(hma12_1h, ema20_1h)
@@ -64,9 +74,14 @@ def analyze_forex_pairs():
                 'Score': score
             })
         except Exception as e:
-            st.warning(f"Erreur pour la paire {pair}: {e}")
+            st.error(f"Erreur pour la paire {pair}: {str(e)}")
+            continue
     
-    # Créer un DataFrame et trier par score
+    # Créer un DataFrame
+    if not results:
+        st.error("Aucune donnée valide n'a pu être récupérée pour les paires Forex. Vérifiez la connexion ou les tickers.")
+        return pd.DataFrame()  # Retourner un DataFrame vide
+    
     df = pd.DataFrame(results)
     df = df.sort_values(by='Score', ascending=False).reset_index(drop=True)
     df['Rank'] = df.index + 1  # Ajouter le classement
@@ -81,17 +96,20 @@ if st.button("Actualiser les données"):
     with st.spinner("Analyse des données en cours..."):
         df = analyze_forex_pairs()
         
-        # Afficher le tableau
-        st.subheader("Classement des paires Forex")
-        styled_df = df.style.apply(
-            lambda x: ['background-color: green' if v == 'Bullish' else 'background-color: red' if v == 'Bearish' else 'background-color: blue' for v in x],
-            subset=['H1', 'H4', 'D', 'W']
-        )
-        st.dataframe(styled_df)
+        # Vérifier si le DataFrame n'est pas vide
+        if not df.empty:
+            # Afficher le tableau
+            st.subheader("Classement des paires Forex")
+            styled_df = df.style.apply(
+                lambda x: ['background-color: green' if v == 'Bullish' else 'background-color: red' if v == 'Bearish' else 'background-color: blue' for v in x],
+                subset=['H1', 'H4', 'D', 'W']
+            )
+            st.dataframe(styled_df)
 
-        # Résumé
-        st.subheader("Résumé")
-        st.write("**Paires haussières (score positif)** : Les paires avec un score positif sont plus susceptibles d'être en tendance haussière.")
-        st.write("**Paires baissières (score négatif)** : Les paires avec un score négatif sont plus susceptibles d'être en tendance baissière.")
-        st.write("**Score** : Calculé en additionnant +1 pour chaque timeframe haussier et -1 pour chaque timeframe baissier.")
-        
+            # Résumé
+            st.subheader("Résumé")
+            st.write("**Paires haussières (score positif)** : Les paires avec un score positif sont plus susceptibles d'être en tendance haussière.")
+            st.write("**Paires baissières (score négatif)** : Les paires avec un score négatif sont plus susceptibles d'être en tendance baissière.")
+            st.write("**Score** : Calculé en additionnant +1 pour chaque timeframe haussier et -1 pour chaque timeframe baissier.")
+        else:
+            st.warning("Aucun résultat à afficher. Essayez de réactualiser ou vérifiez les données sources.")
