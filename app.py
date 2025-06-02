@@ -42,15 +42,19 @@ def analyze_forex_pairs():
     for pair in forex_pairs:
         try:
             # Télécharger les données pour différents timeframes
-            data_1h = yf.download(pair, period='1mo', interval='1h', progress=False)
-            data_4h = yf.download(pair, period='3mo', interval='4h', progress=False)
-            data_d = yf.download(pair, period='1y', interval='1d', progress=False)
-            data_w = yf.download(pair, period='5y', interval='1wk', progress=False)
+            # Réduire les périodes pour éviter des problèmes de données historiques
+            data_1h = yf.download(pair, period='5d', interval='1h', progress=False, auto_adjust=False)
+            data_4h = yf.download(pair, period='1mo', interval='4h', progress=False, auto_adjust=False)
+            data_d = yf.download(pair, period='6mo', interval='1d', progress=False, auto_adjust=False)
+            data_w = yf.download(pair, period='2y', interval='1wk', progress=False, auto_adjust=False)
 
             # Vérifier si les données sont vides
             if data_1h.empty or data_4h.empty or data_d.empty or data_w.empty:
-                st.error(f"Données manquantes pour la paire {pair}")
+                st.error(f"Données manquantes pour la paire {pair}: H1={len(data_1h)}, H4={len(data_4h)}, D={len(data_d)}, W={len(data_w)}")
                 continue
+
+            # Ajouter un log pour vérifier les tailles des données
+            st.info(f"Données pour {pair}: H1={len(data_1h)}, H4={len(data_4h)}, D={len(data_d)}, W={len(data_w)}")
 
             # Calculer les moyennes mobiles
             hma12_1h = hma(data_1h['Close'], 12)
@@ -85,6 +89,7 @@ def analyze_forex_pairs():
                 'W': trend_w,
                 'Score': score
             })
+            st.info(f"Tendances pour {pair}: H1={trend_1h}, H4={trend_4h}, D={trend_d}, W={trend_w}, Score={score}")
         except Exception as e:
             st.error(f"Erreur pour la paire {pair}: {str(e)}")
             continue
