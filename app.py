@@ -21,7 +21,8 @@ def get_trend(fast, slow):
         return 'Bullish'
     elif fast.iloc[-1] < slow.iloc[-1]:
         return 'Bearish'
-    else return 'Neutral'
+    else:
+        return 'Neutral'
 
 # Fonction pour récupérer et analyser les données
 def analyze_forex_pairs():
@@ -93,3 +94,4 @@ if st.button("Actualiser les données"):
         st.write("**Paires haussières (score positif)** : Les paires avec un score positif sont plus susceptibles d'être en tendance haussière.")
         st.write("**Paires baissières (score négatif)** : Les paires avec un score négatif sont plus susceptibles d'être en tendance baissière.")
         st.write("**Score** : Calculé en additionnant +1 pour chaque timeframe haussier et -1 pour chaque timeframe baissier.")
+        
