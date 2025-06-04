@@ -8,10 +8,10 @@ from datetime import datetime, timedelta
 # Liste des paires Forex à analyser
 forex_pairs = ['EURUSD=X', 'GBPUSD=X', 'USDJPY=X', 'AUDUSD=X', 'USDCAD=X', 'USDCHF=X', 'NZDUSD=X']
 
-# Fonction HMA (Hull Moving Average) - utilise des SMA comme dans votre code
+# Fonction HMA (Hull Moving Average)
 def hma(series, length):
     length = int(length)
-    min_points_needed = length + int(math.sqrt(length)) -1
+    min_points_needed = length + int(math.sqrt(length)) -1 # Calcul approximatif des points nécessaires
     if len(series) < min_points_needed:
         return pd.Series([np.nan] * len(series), index=series.index, name='HMA')
 
@@ -21,13 +21,14 @@ def hma(series, length):
     if wma1_period < 1 or length < 1 or sqrt_length_period < 1:
         return pd.Series([np.nan] * len(series), index=series.index, name='HMA')
 
+    # Utiliser min_periods pour s'assurer que la fenêtre est pleine avant de calculer
     wma1 = series.rolling(window=wma1_period, min_periods=wma1_period).mean() * 2
     wma2 = series.rolling(window=length, min_periods=length).mean()
     raw_hma = wma1 - wma2 
     hma_series = raw_hma.rolling(window=sqrt_length_period, min_periods=sqrt_length_period).mean()
     return hma_series
 
-# Fonction pour déterminer la tendance (CORRIGÉE)
+# Fonction pour déterminer la tendance
 def get_trend(fast, slow):
     if fast is None or slow is None or fast.empty or slow.empty:
         return 'Neutral'
@@ -38,9 +39,9 @@ def get_trend(fast, slow):
     fast_last_scalar = np.nan
     if not fast_dn.empty:
         val = fast_dn.iloc[-1]
-        if isinstance(val, pd.Series):
+        if isinstance(val, pd.Series): # Devrait être un scalaire, mais par précaution
             if len(val) == 1: fast_last_scalar = val.item()
-            else: return 'Neutral' # Cas anormal
+            else: return 'Neutral' 
         else:
             fast_last_scalar = val
 
@@ -49,7 +50,7 @@ def get_trend(fast, slow):
         val = slow_dn.iloc[-1]
         if isinstance(val, pd.Series):
             if len(val) == 1: slow_last_scalar = val.item()
-            else: return 'Neutral' # Cas anormal
+            else: return 'Neutral'
         else:
             slow_last_scalar = val
             
@@ -68,7 +69,7 @@ def analyze_forex_pairs():
     results = []
     
     for pair in forex_pairs:
-        st.write(f"Analyse de {pair}...") 
+        # st.write(f"Analyse de {pair}...") # Commenté pour une interface plus propre
         try:
             data_1h = yf.download(pair, period='10d', interval='1h', progress=False, auto_adjust=False, timeout=10)
             data_4h = yf.download(pair, period='2mo', interval='4h', progress=False, auto_adjust=False, timeout=10)
@@ -79,13 +80,12 @@ def analyze_forex_pairs():
                 st.error(f"Données manquantes pour la paire {pair} après téléchargement: H1={len(data_1h)}, H4={len(data_4h)}, D={len(data_d)}, W={len(data_w)}")
                 continue
 
-            st.info(f"Données téléchargées pour {pair}: H1={len(data_1h)}, H4={len(data_4h)}, D={len(data_d)}, W={len(data_w)}")
+            # st.info(f"Données téléchargées pour {pair}: H1={len(data_1h)}, H4={len(data_4h)}, D={len(data_d)}, W={len(data_w)}") # Commenté
 
-            # S'assurer que la colonne 'Close' existe
             for df_name, df_obj in [("data_1h", data_1h), ("data_4h", data_4h), ("data_d", data_d), ("data_w", data_w)]:
                 if 'Close' not in df_obj.columns:
                     st.error(f"La colonne 'Close' est manquante dans {df_name} pour {pair}. Colonnes: {df_obj.columns}")
-                    raise KeyError(f"'Close' not found in {df_name}") # Provoque le passage au 'except'
+                    raise KeyError(f"'Close' not found in {df_name}")
 
             hma12_1h = hma(data_1h['Close'], 12)
             ema20_1h = data_1h['Close'].ewm(span=20, adjust=False).mean()
@@ -105,11 +105,11 @@ def analyze_forex_pairs():
             for ind_series in indicators:
                 if ind_series is None or ind_series.dropna().empty:
                     valid_indicators = False
-                    st.warning(f"Un indicateur pour {pair} est None ou vide après dropna().")
+                    st.warning(f"Un indicateur pour {pair} est None ou vide après dropna().") # Gardé pour le débogage si besoin
                     break
             
             if not valid_indicators:
-                st.error(f"Valeurs manquantes critiques dans les indicateurs pour {pair}. Un ou plusieurs indicateurs sont entièrement NaN.")
+                st.error(f"Valeurs manquantes critiques dans les indicateurs pour {pair}.") # Gardé pour le débogage
                 continue
 
             trend_1h = get_trend(hma12_1h, ema20_1h)
@@ -127,15 +127,15 @@ def analyze_forex_pairs():
                 'W': trend_w,
                 'Score': score
             })
-            st.info(f"Tendances pour {pair}: H1={trend_1h}, H4={trend_4h}, D={trend_d}, W={trend_w}, Score={score}")
+            # st.info(f"Tendances pour {pair}: H1={trend_1h}, H4={trend_4h}, D={trend_d}, W={trend_w}, Score={score}") # Commenté
         except Exception as e:
             st.error(f"Erreur générale pour la paire {pair}: {str(e)}")
             import traceback
-            st.error(traceback.format_exc())
+            st.error(traceback.format_exc()) # Gardé pour un débogage détaillé
             continue
     
     if not results:
-        st.error("Aucune donnée valide n'a pu être récupérée ou analysée pour les paires Forex. Vérifiez la connexion, les tickers, ou les logs d'erreur ci-dessus.")
+        st.error("Aucune donnée valide n'a pu être récupérée ou analysée pour les paires Forex.")
         return pd.DataFrame()
     
     df = pd.DataFrame(results)
@@ -146,7 +146,7 @@ def analyze_forex_pairs():
 # Interface Streamlit
 st.set_page_config(layout="wide")
 st.title("Classement des Paires Forex par Tendance MTF")
-st.write("Basé sur l'indicateur HMA/EMA pour les timeframes H1, H4, D, et W.")
+# st.write("Basé sur l'indicateur HMA/EMA pour les timeframes H1, H4, D, et W.") # Optionnel, peut être gardé ou enlevé
 
 if st.button("Actualiser et Analyser les Paires Forex"):
     with st.spinner("Analyse des données en cours... Merci de patienter."):
@@ -156,11 +156,14 @@ if st.button("Actualiser et Analyser les Paires Forex"):
             st.subheader("Classement des paires Forex")
             
             def style_trends(val):
-                color = 'whitesmoke' 
-                if val == 'Bullish': color = 'lightgreen'
-                elif val == 'Bearish': color = 'lightcoral'
-                elif val == 'Neutral': color = 'lightgoldenrodyellow'
-                return f'background-color: {color}'
+                if val == 'Bullish':
+                    return 'background-color: mediumseagreen; color: white;' # Vert plus foncé, texte blanc
+                elif val == 'Bearish':
+                    return 'background-color: indianred; color: white;'     # Rouge plus foncé, texte blanc
+                elif val == 'Neutral':
+                    return 'background-color: khaki; color: black;'         # Jaune/beige, texte noir
+                else:
+                    return 'background-color: whitesmoke; color: black;' # Style par défaut pour autres valeurs
 
             styled_df = df_results.style.applymap(style_trends, subset=['H1', 'H4', 'D', 'W'])
             st.dataframe(styled_df, use_container_width=True)
@@ -174,7 +177,7 @@ if st.button("Actualiser et Analyser les Paires Forex"):
             - **Score**: Somme des tendances (+1 pour Bullish, -1 pour Bearish, 0 pour Neutral) sur les 4 timeframes.
             """)
         else:
-            st.warning("Aucun résultat à afficher. Essayez de réactualiser ou vérifiez les logs d'erreur.")
+            st.warning("Aucun résultat à afficher. Essayez de réactualiser ou vérifiez les logs d'erreur si des problèmes ont été signalés.")
 else:
     st.info("Cliquez sur le bouton ci-dessus pour lancer l'analyse.")
            
